@@ -88,7 +88,7 @@ def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
         embedding_function=embeddings,
     )
 
-    # ---- Reject obvious non-character nouns (fast guard) ----
+    # ---- Reject obvious non-character nouns (Gaurdraisl of AI) ----
     non_char_nouns = {
         "school", "house", "village", "town", "city", "river", "road", "forest",
         "garden", "street", "mountain", "church", "hospital"

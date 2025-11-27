@@ -1,9 +1,7 @@
-# cli.py
-
 import argparse
 
 from compute_embeddings import compute_and_persist_embeddings
-# we'll import get_character_info later
+
 
 
 def main():
@@ -31,7 +29,7 @@ def main():
         help="Directory where Chroma DB will be stored.",
     )
 
-    # ---- get-character-info (will implement later) ----
+    # ---- get-character-info  ----
     get_parser = subparsers.add_parser(
         "get-character-info",
         help="Get structured info for a given character.",
@@ -57,7 +55,7 @@ def main():
         )
 
     elif args.command == "get-character-info":
-        # We will implement this function in the next step
+        
         from get_character_info import get_character_info_cli
 
         get_character_info_cli(
