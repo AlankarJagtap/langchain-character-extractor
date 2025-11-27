@@ -18,17 +18,11 @@ def clean_json_fences(text: str) -> str:
     """Remove ```json ... ``` or ``` ... ``` wrappers."""
     text = text.strip()
 
-    # If starts with ```
     if text.startswith("```"):
-        # Remove the first ```
         text = text.split("```", 1)[1].strip()
-
-        # If it starts with json or JSON
         if text.lower().startswith("json"):
-            # remove the word "json"
             text = text[4:].strip()
 
-    # If ends with ```
     if text.endswith("```"):
         text = text[:-3].strip()
 
@@ -36,25 +30,37 @@ def clean_json_fences(text: str) -> str:
 
 
 # -----------------------------------------------------------
-#  PROMPT FOR CHARACTER INFO EXTRACTION
+#  PROMPT FOR CHARACTER INFO EXTRACTION (STRICT)
 # -----------------------------------------------------------
 def build_extraction_prompt(character_name: str, story_context: str) -> str:
     return f"""
-You are an information extraction assistant.
+You are a strict information extraction system.
 
-Extract information for the character "{character_name}" from the provided story context.
+Your task is to determine whether "{character_name}" is a human CHARACTER in the story.
 
-Return STRICT JSON with the following keys:
+### VERY IMPORTANT RULES
+1. A *character* must be a **human person** in the story.
+2. DO NOT treat places, buildings, events, objects, emotions, animals, schools, cities,
+   or any non-human entity as characters.
+3. If "{character_name}" is NOT a human character in the story, return ONLY:
 
-- name
-- storyTitle
-- summary
-- relations: an array of objects → {{ "name": string, "relation": string }}
-- characterType: protagonist, antagonist, side character, unknown
+{{
+  "error": "Not a character in the story."
+}}
 
-If information is missing, return empty strings or an empty list.
+4. If it IS a human character, return STRICT JSON:
 
-OUTPUT ONLY JSON. No explanation.
+{{
+  "name": string,
+  "storyTitle": string,
+  "summary": string,
+  "relations": [
+      {{ "name": string, "relation": string }}
+  ],
+  "characterType": "protagonist" | "antagonist" | "side character" | "unknown"
+}}
+
+No explanation. Only JSON.
 
 Story context:
 \"\"\"
@@ -64,16 +70,16 @@ Story context:
 
 
 # -----------------------------------------------------------
-#  CORE FUNCTION — SEARCH → EXTRACT → RETURN JSON
+#  CORE FUNCTION — SEARCH → GUARD → EXTRACT JSON
 # -----------------------------------------------------------
 def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
-    """Query Chroma, retrieve story chunks, send to Mistral for structured extraction."""
+    """Retrieves story context, validates character, and extracts structured details."""
 
     mistral_api_key = os.getenv("MISTRAL_API_KEY")
     if not mistral_api_key:
         raise RuntimeError("MISTRAL_API_KEY not set in .env")
 
-    # ---- 1. Load embeddings + Chroma ----
+    # ---- 1. Load embeddings + vector DB ----
     print("🔍 Loading Chroma DB...")
     embeddings = MistralAIEmbeddings(model="mistral-embed")
 
@@ -82,31 +88,43 @@ def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
         embedding_function=embeddings,
     )
 
-    # ---- 2. Search for character ----
+    # ---- Reject obvious non-character nouns (fast guard) ----
+    non_char_nouns = {
+        "school", "house", "village", "town", "city", "river", "road", "forest",
+        "garden", "street", "mountain", "church", "hospital"
+    }
+
+    if character_name.lower() in non_char_nouns:
+        return {"error": f"'{character_name}' is not a character in the story."}
+
+    # ---- 2. Similarity search ----
     print(f"🔎 Searching for character: {character_name}")
     results = vectorstore.similarity_search(character_name, k=4)
 
     if not results:
         return {"error": f"Character '{character_name}' not found in any story."}
 
-    # Combine all retrieved chunks
+    # Combine story chunks
     story_context = "\n\n".join([doc.page_content for doc in results])
 
-    # ---- 3. Build prompt ----
+    # ---- 3. Hard guard: Ensure the name appears in the text ----
+    if character_name.lower() not in story_context.lower():
+        return {"error": f"Character '{character_name}' not found in any story."}
+
+    # ---- 4. Build prompt ----
     prompt = build_extraction_prompt(character_name, story_context)
 
-    # ---- 4. Mistral LLM ----
+    # ---- 5. Call Mistral LLM ----
     print("🤖 Sending to Mistral LLM...")
-    llm = ChatMistralAI(model="open-mistral-7b")
+    llm = ChatMistralAI(model="open-mistral-7b", max_tokens=500)
     response = llm.invoke(prompt)
 
     raw_output = response.content.strip()
     cleaned = clean_json_fences(raw_output)
 
-    # ---- 5. Parse JSON ----
+    # ---- 6. Parse JSON ----
     try:
         return json.loads(cleaned)
-
     except json.JSONDecodeError:
         return {
             "error": "LLM returned invalid JSON.",
