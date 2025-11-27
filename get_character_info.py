@@ -32,27 +32,28 @@ def clean_json_fences(text: str) -> str:
 # -----------------------------------------------------------
 #  PROMPT FOR CHARACTER INFO EXTRACTION (STRICT)
 # -----------------------------------------------------------
-def build_extraction_prompt(character_name: str, story_context: str) -> str:
+def build_extraction_prompt(character_name: str, story_context: str, story_title: str) -> str:
     return f"""
 You are a strict information extraction system.
 
-Your task is to determine whether "{character_name}" is a human CHARACTER in the story.
+The story title is: "{story_title}".
+
+Your task is to determine whether "{character_name}" is a human CHARACTER in this story.
 
 ### VERY IMPORTANT RULES
-1. A *character* must be a **human person** in the story.
-2. DO NOT treat places, buildings, events, objects, emotions, animals, schools, cities,
-   or any non-human entity as characters.
+1. A character MUST be a human person in the story.
+2. DO NOT treat places, buildings, concepts, events, animals, objects, or locations as characters.
 3. If "{character_name}" is NOT a human character in the story, return ONLY:
 
 {{
   "error": "Not a character in the story."
 }}
 
-4. If it IS a human character, return STRICT JSON:
+4. If it IS a character, return STRICT JSON:
 
 {{
-  "name": string,
-  "storyTitle": string,
+  "name": "{character_name}",
+  "storyTitle": "{story_title}",
   "summary": string,
   "relations": [
       {{ "name": string, "relation": string }}
@@ -60,7 +61,7 @@ Your task is to determine whether "{character_name}" is a human CHARACTER in the
   "characterType": "protagonist" | "antagonist" | "side character" | "unknown"
 }}
 
-No explanation. Only JSON.
+No explanations. Only JSON.
 
 Story context:
 \"\"\"
@@ -70,10 +71,10 @@ Story context:
 
 
 # -----------------------------------------------------------
-#  CORE FUNCTION — SEARCH → GUARD → EXTRACT JSON
+#  CORE FUNCTION — SEARCH → VALIDATE → EXTRACT JSON
 # -----------------------------------------------------------
 def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
-    """Retrieves story context, validates character, and extracts structured details."""
+    """Retrieves story context, validates character, extracts structured details."""
 
     mistral_api_key = os.getenv("MISTRAL_API_KEY")
     if not mistral_api_key:
@@ -88,10 +89,10 @@ def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
         embedding_function=embeddings,
     )
 
-    # ---- Reject obvious non-character nouns (Gaurdraisl of AI) ----
+    # ---- Fast rejection of obvious non-human terms ----
     non_char_nouns = {
-        "school", "house", "village", "town", "city", "river", "road", "forest",
-        "garden", "street", "mountain", "church", "hospital"
+        "school", "village", "town", "city", "river", "road", "forest",
+        "garden", "house", "building", "church", "hospital", "tree", "market"
     }
 
     if character_name.lower() in non_char_nouns:
@@ -104,17 +105,20 @@ def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
     if not results:
         return {"error": f"Character '{character_name}' not found in any story."}
 
-    # Combine story chunks
+    # ---- 3. Combine chunks & validate ----
     story_context = "\n\n".join([doc.page_content for doc in results])
 
-    # ---- 3. Hard guard: Ensure the name appears in the text ----
     if character_name.lower() not in story_context.lower():
         return {"error": f"Character '{character_name}' not found in any story."}
 
-    # ---- 4. Build prompt ----
-    prompt = build_extraction_prompt(character_name, story_context)
+    # ---- Extract story title from metadata ----
+    story_titles = [doc.metadata.get("story_title", "") for doc in results]
+    story_title = story_titles[0] if story_titles else "Unknown"
 
-    # ---- 5. Call Mistral LLM ----
+    # ---- 4. Build strict prompt ----
+    prompt = build_extraction_prompt(character_name, story_context, story_title)
+
+    # ---- 5. LLM Processing ----
     print("🤖 Sending to Mistral LLM...")
     llm = ChatMistralAI(model="open-mistral-7b", max_tokens=500)
     response = llm.invoke(prompt)
@@ -138,4 +142,5 @@ def get_character_info(character_name: str, persist_dir: str = "chroma_db"):
 # -----------------------------------------------------------
 def get_character_info_cli(character_name: str, persist_dir: str):
     result = get_character_info(character_name, persist_dir)
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
