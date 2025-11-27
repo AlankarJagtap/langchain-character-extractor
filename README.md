@@ -40,8 +40,8 @@ This system solves that via:
 1. **Embed stories** into vector space (`mistral-embed`)
 2. **Store embeddings** in ChromaDB
 3. **Retrieve relevant segments** using semantic search
-4. **Augment LLM input** with only the top relevant chunks
-5. **Generate structured JSON** using an LLM (open-mistral-7b)
+4. **Augment LLM input** with retrieved chunks
+5. **Generate structured JSON** using an LLM (`open-mistral-7b`)
 
 ---
 
@@ -125,18 +125,102 @@ MISTRAL_API_KEY=your_api_key_here
 
 ---
 
-# 🚀 Usage
+# 🎬 Demo Walkthrough
 
-### 1️⃣ Compute Embeddings
+A full step-by-step demonstration on how to run the system.
+
+---
+
+## 🧰 1️⃣ Setup
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Add your Mistral API key inside `.env`.
+
+---
+
+## 📚 2️⃣ Add Story Files
+
+Place `.txt` stories inside:
+
+```
+data/
+├── story1.txt
+├── story2.txt
+└── story3.txt
+```
+
+The **first line becomes the story title**.
+
+---
+
+## ⚙️ 3️⃣ Compute Embeddings
 
 ```bash
 python cli.py compute-embeddings --data-dir data --persist-dir chroma_db
 ```
 
-### 2️⃣ Extract Character Information
+Expected output:
+
+```
+📘 Loading stories from: data
+📄 Loaded X story files.
+✂️ N chunks created.
+💾 Saving embeddings into ChromaDB...
+✅ Embeddings computed and stored successfully.
+```
+
+---
+
+## 🔍 4️⃣ Extract Character Information
 
 ```bash
-python cli.py get-character-info "Alice"
+python cli.py get-character-info "John Spatter"
+```
+
+Example output:
+
+```json
+{
+  "name": "John Spatter",
+  "storyTitle": "The Poor Relation’s Story",
+  "summary": "...",
+  "relations": [
+    {"name": "Michael", "relation": "friend and business partner"}
+  ],
+  "characterType": "side character"
+}
+```
+
+---
+
+## 🧪 5️⃣ Edge Case Demonstration
+
+### ❌ Unknown character
+
+```bash
+python cli.py get-character-info "XYZPerson"
+```
+
+Result:
+
+```json
+{ "error": "Character 'XYZPerson' not found in any story." }
+```
+
+### ❌ Non-human entity
+
+```bash
+python cli.py get-character-info "School"
+```
+
+Result:
+
+```json
+{ "error": "Not a character in the story." }
 ```
 
 ---
@@ -157,21 +241,17 @@ python cli.py get-character-info "Alice"
 
 ---
 
-# 🛑 Edge Case Handling
+# 🎯 Summary
 
-```json
-{ "error": "Character 'X' not found in any story." }
-```
+This project demonstrates a complete, production-style **RAG pipeline**, combining:
 
-```json
-{ "error": "Not a character in the story." }
-```
+- ChromaDB vector search  
+- Mistral embeddings  
+- LLM-based structured extraction  
+- Strict hallucination prevention  
+- Clean CLI workflows  
 
 ---
 
-# 🎯 Summary
-
-This project demonstrates a **full RAG pipeline**, clean architecture, structured LLM extraction, and robust error handling.
-
 📝 **Author:** Alankar Jagtap  
-🔗 GitHub: https://github.com/AlankarJagtap
+🔗 **GitHub:** https://github.com/AlankarJagtap
