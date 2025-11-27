@@ -95,11 +95,11 @@ This system solves that via:
 
 ```
 langchain-character-extractor/
-│── data/                       # Story files
-│── chroma_db/                  # Vector DB (auto-created)
-│── compute_embeddings.py       # Builds embeddings and DB
-│── get_character_info.py       # RAG pipeline for character extraction
-│── cli.py                      # User-friendly CLI
+│── data/                       
+│── chroma_db/                  
+│── compute_embeddings.py       
+│── get_character_info.py       
+│── cli.py                      
 │── README.md
 │── requirements.txt
 │── .env.example
@@ -159,35 +159,19 @@ python cli.py get-character-info "Alice"
 
 # 🛑 Edge Case Handling
 
-### ❌ Character not found
 ```json
 { "error": "Character 'X' not found in any story." }
 ```
 
-### ❌ Non-human term
 ```json
 { "error": "Not a character in the story." }
 ```
-
-### ❌ Invalid JSON
-Shows LLM output for debugging.
 
 ---
 
 # 🎯 Summary
 
-This project demonstrates:
-
-- A **full RAG pipeline**
-- Clean abstraction layers  
-- Accurate retrieval via embeddings  
-- Real-world structured LLM extraction  
-- Robust error handling  
-- Practical application of LangChain + MistralAI  
-
-Perfect for interviews, assignments, and demonstrating knowledge of applied RAG systems.
-
----
+This project demonstrates a **full RAG pipeline**, clean architecture, structured LLM extraction, and robust error handling.
 
 📝 **Author:** Alankar Jagtap  
 🔗 GitHub: https://github.com/AlankarJagtap
