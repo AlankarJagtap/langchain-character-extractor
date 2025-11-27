@@ -55,9 +55,9 @@ def compute_and_persist_embeddings(
     if not mistral_api_key:
         raise RuntimeError("MISTRAL_API_KEY is not set. Put it in your .env file.")
 
-    print(f"\n📘 Loading stories from: {data_dir}")
+    print(f"\n Loading stories from: {data_dir}")
     docs = load_story_documents(data_dir)
-    print(f"📄 Loaded {len(docs)} story files.")
+    print(f"Loaded {len(docs)} story files.")
 
     # -------- 1. Split into chunks --------
     splitter = RecursiveCharacterTextSplitter(
@@ -67,7 +67,7 @@ def compute_and_persist_embeddings(
     )
 
     split_docs = splitter.split_documents(docs)
-    print(f"✂️  Produced {len(split_docs)} raw chunks.")
+    print(f"Produced {len(split_docs)} raw chunks.")
 
     # -------- 2. Filter out empty chunks --------
     valid_docs = []
@@ -79,14 +79,14 @@ def compute_and_persist_embeddings(
     print(f"🧹 {len(valid_docs)} valid chunks after cleaning.")
 
     if not valid_docs:
-        print("❌ No valid chunks to embed — exiting.")
+        print("No valid chunks to embed — exiting.")
         return
 
     # -------- 3. Embeddings --------
-    print("🔢 Creating Mistral embedding model...")
+    print("Creating Mistral embedding model...")
     embeddings = MistralAIEmbeddings(model="mistral-embed")
 
-    print(f"💾 Creating Chroma DB at: {persist_dir}")
+    print(f"Creating Chroma DB at: {persist_dir}")
     vectorstore = Chroma.from_documents(
         documents=valid_docs,
         embedding=embeddings,
@@ -94,4 +94,4 @@ def compute_and_persist_embeddings(
     )
 
     vectorstore.persist()
-    print("✅ Embeddings computed and stored successfully.\n")
+    print("Embeddings computed and stored successfully.\n")
